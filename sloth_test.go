@@ -1,4 +1,4 @@
-package main
+package slothgo
 
 import (
 	"math/big"
