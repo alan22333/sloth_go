@@ -12,9 +12,9 @@ import (
 
 // Sloth 结构体持有 VDF 的所有参数
 type Sloth struct {
-	p          *big.Int // 大素数模数, p ≡ 3 (mod 4)
-	iterations int64    // 迭代次数 (延迟参数)
-	hashFunc   func() hash.Hash
+	P          *big.Int // 大素数模数, p ≡ 3 (mod 4)
+	Iterations int64    // 迭代次数 (延迟参数)
+	HashFunc   func() hash.Hash
 
 	// 预计算的值，用于加速
 	sqrtExp *big.Int // (p+1)/4 用于计算平方根
@@ -50,9 +50,9 @@ func New(p *big.Int, iterations int64) (*Sloth, error) {
 	sqrtExp.Div(sqrtExp, bigFour)
 
 	return &Sloth{
-		p:          p,
-		iterations: iterations,
-		hashFunc:   sha256.New,
+		P:          p,
+		Iterations: iterations,
+		HashFunc:   sha256.New,
 		sqrtExp:    sqrtExp,
 	}, nil
 }
@@ -65,15 +65,15 @@ func New(p *big.Int, iterations int64) (*Sloth, error) {
 //   - error: 计算过程中的错误
 func (s *Sloth) Compute(input []byte) (hash []byte, witness *big.Int, err error) {
 	// 步骤 1 & 3: h(s) 并转换为 w₀
-	hasher := s.hashFunc()
+	hasher := s.HashFunc()
 	hasher.Write(input)
 	uBytes := hasher.Sum(nil)
 
 	w := new(big.Int).SetBytes(uBytes)
-	w.Mod(w, s.p) // w₀ = int(h(s))
+	w.Mod(w, s.P) // w₀ = int(h(s))
 
 	// 步骤 4: 迭代 l 次
-	for i := int64(0); i < s.iterations; i++ {
+	for i := int64(0); i < s.Iterations; i++ {
 		w = s.tau(w)
 	}
 
@@ -105,12 +105,12 @@ func (s *Sloth) Verify(input []byte, hash []byte, witness *big.Int) (bool, error
 		return false, errors.New("witness cannot be nil")
 	}
 	// 确保 witness 在 F_p 域内，这是一个很好的健壮性检查
-	if witness.Cmp(s.p) >= 0 || witness.Sign() < 0 {
+	if witness.Cmp(s.P) >= 0 || witness.Sign() < 0 {
 		return false, fmt.Errorf("witness must be in the range [0, p-1]")
 	}
 
 	// 验证 g = h(hex(w))
-	hasher := s.hashFunc()
+	hasher := s.HashFunc()
 	hasher.Write(witness.Bytes())
 	expectedHash := hasher.Sum(nil)
 	if !bytes.Equal(hash, expectedHash) {
@@ -119,7 +119,7 @@ func (s *Sloth) Verify(input []byte, hash []byte, witness *big.Int) (bool, error
 
 	// 步骤 4 & 5 (逆向): 从 w 开始，迭代 l 次 τ⁻¹
 	wCheck := new(big.Int).Set(witness)
-	for i := int64(0); i < s.iterations; i++ {
+	for i := int64(0); i < s.Iterations; i++ {
 		wCheck = s.tauInverse(wCheck)
 	}
 
@@ -128,7 +128,7 @@ func (s *Sloth) Verify(input []byte, hash []byte, witness *big.Int) (bool, error
 	hasher.Write(input)
 	uBytes := hasher.Sum(nil)
 	wStartExpected := new(big.Int).SetBytes(uBytes)
-	wStartExpected.Mod(wStartExpected, s.p)
+	wStartExpected.Mod(wStartExpected, s.P)
 
 	// 比较逆向计算的结果和预期的初始值
 	if wCheck.Cmp(wStartExpected) == 0 {
@@ -150,7 +150,7 @@ func (s *Sloth) sigma(x *big.Int) *big.Int {
 		res.Add(x, bigOne)
 	}
 	// 确保结果在 F_p 域内
-	return res.Mod(res, s.p)
+	return res.Mod(res, s.P)
 }
 
 // sigmaInverse (σ⁻¹) "邻居交换"的逆也是它本身
@@ -162,34 +162,34 @@ func (s *Sloth) sigmaInverse(x *big.Int) *big.Int {
 func (s *Sloth) rho(x *big.Int) *big.Int {
 	// 检查 x 是否是二次剩余
 	valToRoot := new(big.Int)
-	if big.Jacobi(x, s.p) == 1 {
+	if big.Jacobi(x, s.P) == 1 {
 		valToRoot.Set(x)
 	} else {
 		// 如果不是，取 -x 的根
-		valToRoot.Neg(x).Mod(valToRoot, s.p)
+		valToRoot.Neg(x).Mod(valToRoot, s.P)
 	}
 
 	// 计算根 y = valToRoot^((p+1)/4) mod p
-	root := new(big.Int).Exp(valToRoot, s.sqrtExp, s.p)
+	root := new(big.Int).Exp(valToRoot, s.sqrtExp, s.P)
 
 	// 选择偶数提升值的根
 	if root.Bit(0) == 0 { // 偶数
 		return root
 	}
 	// 否则，另一个根是 p - root，它一定是偶数
-	return new(big.Int).Sub(s.p, root)
+	return new(big.Int).Sub(s.P, root)
 }
 
 // rhoInverse (ρ⁻¹) 是 ρ 的逆运算
 // 如果 y_hat 是偶数, ρ⁻¹(y) = y²
 // 如果 y_hat 是奇数, ρ⁻¹(y) = -y²
 func (s *Sloth) rhoInverse(y *big.Int) *big.Int {
-	ySquared := new(big.Int).Exp(y, bigTwo, s.p)
+	ySquared := new(big.Int).Exp(y, bigTwo, s.P)
 	if y.Bit(0) == 0 { // 偶数
 		return ySquared
 	}
 	// 奇数
-	return new(big.Int).Neg(ySquared).Mod(ySquared, s.p)
+	return new(big.Int).Neg(ySquared).Mod(ySquared, s.P)
 }
 
 // tau (τ) 是核心的迭代函数
