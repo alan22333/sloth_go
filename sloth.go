@@ -74,7 +74,7 @@ func (s *Sloth) Compute(input []byte) (hash []byte, witness *big.Int, err error)
 
 	// 步骤 4: 迭代 l 次
 	for i := int64(0); i < s.Iterations; i++ {
-		w = s.tau(w)
+		w = s.Tau(w)
 	}
 
 	witness = new(big.Int).Set(w)
@@ -120,7 +120,7 @@ func (s *Sloth) Verify(input []byte, hash []byte, witness *big.Int) (bool, error
 	// 步骤 4 & 5 (逆向): 从 w 开始，迭代 l 次 τ⁻¹
 	wCheck := new(big.Int).Set(witness)
 	for i := int64(0); i < s.Iterations; i++ {
-		wCheck = s.tauInverse(wCheck)
+		wCheck = s.TauInverse(wCheck)
 	}
 
 	// 计算预期的初始值 w₀
