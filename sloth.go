@@ -193,12 +193,12 @@ func (s *Sloth) rhoInverse(y *big.Int) *big.Int {
 }
 
 // tau (τ) 是核心的迭代函数
-func (s *Sloth) tau(x *big.Int) *big.Int {
+func (s *Sloth) Tau(x *big.Int) *big.Int {
 	return s.rho(s.sigma(x))
 }
 
 // tauInverse (τ⁻¹) 是 τ 的逆函数
-func (s *Sloth) tauInverse(y *big.Int) *big.Int {
+func (s *Sloth) TauInverse(y *big.Int) *big.Int {
 	return s.sigmaInverse(s.rhoInverse(y))
 }
 
